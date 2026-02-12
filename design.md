@@ -1,308 +1,351 @@
-# BharatSprint - System Design Document
+# BharatSprint - Technical Design Document
 
-## 1. Design Overview
+## 1. System Architecture
 
-BharatSprint is a **microservices-based, AI-augmented coordination platform** built on the MERN stack with LLM integration and vector search capabilities.
+### 1.1 High-Level Architecture
 
-**Design Principles:**
-1. **Human-in-loop governance:** AI assists, humans decide
-2. **Jira as source of truth:** We reference, not mirror
-3. **Modularity:** Swappable LLM providers, storage backends
-4. **Privacy-first:** On-prem deployment option, minimal data retention
-5. **Bharat-optimized:** Low bandwidth, multilingual, offline-capable
+```
+Developer Input (IDE/Chat/PR/Notes)
+          ↓
+AI Processing Layer (Semantic Context + LLM)
+          ↓
+Human-in-Loop Approval (Scrum Master)
+          ↓
+Execution Layer (Jira/GitHub)
+          ↓
+Learning & Monitoring (Dashboards + Adaptive Paths)
+```
+
+### 1.2 Core Design Principle
+
+**AI drafts, humans approve, systems execute** — governance-first automation that maintains human control while eliminating repetitive coordination work.
 
 ---
 
-## 2. System Architecture
+## 2. Technology Stack
 
-### 2.1 High-Level Architecture
+### 2.1 Backend Services
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Client Layer                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Next.js    │  │  VS Code Ext │  │  Mobile PWA  │      │
-│  │  Dashboard   │  │ (TypeScript) │  │              │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└─────────────────────────────────────────────────────────────┘
-                              ↓ HTTPS/REST
-┌─────────────────────────────────────────────────────────────┐
-│                   API Gateway Layer                          │
-│              (Express.js + TypeScript)                       │
-│          ┌──────────────────────────────────┐               │
-│          │  Auth, Rate Limiting, CORS       │               │
-│          └──────────────────────────────────┘               │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                  Application Services Layer                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │ Ingestion    │  │  AI Service  │  │ Jira Service │      │
-│  │  Service     │  │   (LLM)      │  │   (OAuth)    │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-│                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  Learning    │  │ Code Search  │  │IDE Assistant │      │
-│  │   Service    │  │  (Vector)    │  │   Service    │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                     Data Layer                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   MongoDB    │  │  Weaviate    │  │    Redis     │      │
-│  │  (Primary)   │  │  (Vectors)   │  │  (Cache/Q)   │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                 External Integrations                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  Jira Cloud  │  │    GitHub    │  │   OpenAI     │      │
-│  │   (OAuth)    │  │   (REST)     │  │   (API)      │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└─────────────────────────────────────────────────────────────┘
-```
+- **Runtime:** Node.js 18+ with TypeScript
+- **Framework:** Express.js with Helmet security middleware
+- **Database:** MongoDB (document storage) + Redis (caching, job queues)
+- **Vector Database:** Weaviate (embeddings and semantic search)
+- **Authentication:** JWT with 7-day expiration
+- **API Documentation:** Swagger/OpenAPI 3.0
+
+### 2.2 Frontend Application
+
+- **Framework:** Next.js 14 with TypeScript
+- **UI Library:** Tailwind CSS + Headless UI components
+- **State Management:** Zustand for client state
+- **Charts:** Recharts for dashboard visualizations
+- **PWA:** Service workers for offline capability
+
+### 2.3 IDE Extension
+
+- **Platform:** VS Code Extension API
+- **Language:** TypeScript
+- **Communication:** REST API to backend service
+- **Features:** Code explanation, test generation, blocker flagging
+
+### 2.4 AI/ML Components
+
+- **LLM Provider:** OpenAI GPT-4 Turbo (primary), Llama 2 (on-prem option)
+- **Embeddings:** OpenAI text-embedding-ada-002
+- **Vector Search:** Weaviate with HNSW indexing
+- **NLP Pipeline:** Custom prompt chains for action extraction
 
 ---
 
-### 2.2 Component Diagram
+## 3. Data Architecture
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                     BharatSprint Platform                       │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐ │
-│  │                  Frontend Components                      │ │
-│  │  • Scrum Master Dashboard (action review, metrics)       │ │
-│  │  • Developer Portal (learning paths, profile)            │ │
-│  │  • Admin Panel (project settings, integrations)          │ │
-│  └──────────────────────────────────────────────────────────┘ │
-│                              ↓                                  │
-│  ┌──────────────────────────────────────────────────────────┐ │
-│  │                  Backend Services                         │ │
-│  │                                                           │ │
-│  │  ┌────────────────┐  ┌────────────────┐                 │ │
-│  │  │ Ingestion API  │  │  AI Processor  │                 │ │
-│  │  │ - Upload notes │  │  - Extract     │                 │ │
-│  │  │ - Slack hook   │  │  - Enrich      │                 │ │
-│  │  │ - PR webhook   │  │  - Draft       │                 │ │
-│  │  └────────────────┘  └────────────────┘                 │ │
-│  │                                                           │ │
-│  │  ┌────────────────┐  ┌────────────────┐                 │ │
-│  │  │ Jira Connector │  │ Code Analyzer  │                 │ │
-│  │  │ - OAuth flow   │  │  - Repo scan   │                 │ │
-│  │  │ - Issue CRUD   │  │  - Embeddings  │                 │ │
-│  │  │ - Webhook sync │  │  - Search      │                 │ │
-│  │  └────────────────┘  └────────────────┘                 │ │
-│  │                                                           │ │
-│  │  ┌────────────────┐  ┌────────────────┐                 │ │
-│  │  │ Learning Gen   │  │ IDE Service    │                 │ │
-│  │  │ - Path create  │  │  - Explain     │                 │ │
-│  │  │ - Task assign  │  │  - Test gen    │                 │ │
-│  │  │ - Progress     │  │  - Flag block  │                 │ │
-│  │  └────────────────┘  └────────────────┘                 │ │
-│  └──────────────────────────────────────────────────────────┘ │
-│                                                                 │
-└────────────────────────────────────────────────────────────────┘
-```
+### 3.1 Core Data Models
 
----
+#### 3.1.1 Input Sources
 
-## 3. Data Models
-
-### 3.1 MongoDB Schema Design
-
-#### User Collection
-```javascript
-{
-  _id: ObjectId,
-  organizationId: ObjectId,  // ref: Organization
-  email: String (unique),
-  password: String (hashed),
-  name: String,
-  role: Enum['scrum_master', 'developer', 'student', 'manager'],
-  jiraAccountId: String (optional),
-  createdAt: Date
+```typescript
+interface InputSource {
+  id: string;
+  type: 'meeting_notes' | 'slack_message' | 'pr_comment' | 'ide_selection';
+  content: string;
+  metadata: {
+    author: string;
+    timestamp: Date;
+    source_url?: string;
+    repository?: string;
+  };
+  processing_status: 'pending' | 'processed' | 'failed';
 }
 ```
 
-#### Project Collection
-```javascript
-{
-  _id: ObjectId,
-  organizationId: ObjectId,
-  name: String,
-  repoUrl: String,
-  repoProvider: Enum['github', 'gitlab'],
-  jiraProjectKey: String (optional),
-  settings: {
-    language: String (default: 'en'),
-    allowExternalLLM: Boolean (default: true),
-    onPremInference: Boolean (default: false)
-  },
-  createdAt: Date
+#### 3.1.2 Action Drafts
+
+```typescript
+interface ActionDraft {
+  id: string;
+  source_id: string;
+  title: string;
+  description: string;
+  acceptance_criteria: string[];
+  story_points: number;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  labels: string[];
+  suggested_assignee?: string;
+  confidence_score: number; // 0-100
+  repository_links: RepositoryLink[];
+  status: 'draft' | 'approved' | 'rejected' | 'pushed_to_jira';
+  created_at: Date;
+  reviewed_by?: string;
+  jira_issue_key?: string;
 }
 ```
 
-#### ActionDraft Collection
-```javascript
-{
-  _id: ObjectId,
-  inputSourceId: ObjectId,  // ref: InputSource
-  projectId: ObjectId,      // ref: Project
-  status: Enum['draft', 'pending_review', 'approved', 'rejected', 'pushed_to_jira'],
-  
-  // AI extracted
-  title: String,
-  description: Text,
-  acceptanceCriteria: Text (Gherkin format),
-  suggestedAssigneeId: ObjectId (ref: User, optional),
-  suggestedStoryPoints: Number [1,2,3,5,8],
-  labels: Array<String>,
-  confidenceScore: Number [0-100],
-  sourceExcerpt: Text,
-  
-  // Human review
-  reviewedById: ObjectId (ref: User, optional),
-  reviewedAt: Date (optional),
-  createdAt: Date,
-  updatedAt: Date
+#### 3.1.3 Repository Context
+
+```typescript
+interface RepositoryLink {
+  type: 'file' | 'pr' | 'commit' | 'issue';
+  url: string;
+  title: string;
+  relevance_score: number;
+  excerpt?: string;
 }
 ```
 
-#### JiraIssue Collection
-```javascript
-{
-  _id: ObjectId,
-  actionDraftId: ObjectId (ref: ActionDraft),
-  jiraIssueKey: String,    // e.g., "PROJ-123"
-  jiraIssueId: String,
-  jiraUrl: String,
-  status: String,
-  lastSyncedAt: Date,
-  createdAt: Date
+#### 3.1.4 Learning Paths
+
+```typescript
+interface LearningPath {
+  id: string;
+  developer_id: string;
+  repository: string;
+  duration_weeks: number;
+  micro_tasks: MicroTask[];
+  progress: number; // 0-100
+  created_at: Date;
+}
+
+interface MicroTask {
+  id: string;
+  title: string;
+  description: string;
+  estimated_minutes: number;
+  linked_files: string[];
+  linked_jira_issue?: string;
+  completed: boolean;
 }
 ```
-
-**Indexes:**
-```javascript
-// Performance-critical indexes
-User: { email: 1 } (unique)
-ActionDraft: { projectId: 1, status: 1 }
-JiraIssue: { jiraIssueKey: 1 } (unique)
-CodeContext: { projectId: 1, filePath: 1 }
-```
-
----
-
-### 3.2 Weaviate Schema (Vector Database)
-
-```javascript
-{
-  class: "CodeChunk",
-  properties: [
-    { name: "projectId", dataType: ["string"] },
-    { name: "filePath", dataType: ["string"] },
-    { name: "content", dataType: ["text"] },
-    { name: "language", dataType: ["string"] },
-    { name: "chunkType", dataType: ["string"] },  // function, class, comment
-    { name: "metadata", dataType: ["object"] }
-  ],
-  vectorizer: "text2vec-openai"
-}
-```
-
-**Usage:** Semantic search for "find code related to payment processing"
 
 ---
 
 ## 4. API Design
 
-### 4.1 REST API Endpoints
+### 4.1 Input Processing Endpoints
 
-#### Authentication
 ```
-POST   /api/auth/register          # Create account
-POST   /api/auth/login             # Get JWT token
-GET    /api/auth/me                # Get current user
-```
+POST /api/v1/inputs
+- Accept text input from various sources
+- Return: input_id, processing_status
 
-#### Ingestion
-```
-POST   /api/ingest                 # Submit text input
-Body: {
-  projectId: string,
-  sourceType: 'meeting_notes' | 'slack' | 'pr_comment' | 'ide',
-  content: string,
-  metadata: object
-}
-Response: { inputSourceId: string, status: 'processing' }
+GET /api/v1/inputs/{input_id}/actions
+- Get extracted action drafts for an input
+- Return: ActionDraft[]
 ```
 
-#### Actions
+### 4.2 Action Management Endpoints
+
 ```
-GET    /api/projects/:projectId/actions              # List action drafts
-Query: ?status=pending_review
-Response: { actions: ActionDraft[] }
+GET /api/v1/actions/pending
+- Get all pending action drafts for review
+- Return: ActionDraft[]
 
-PATCH  /api/actions/:actionId                        # Edit draft (Scrum Master)
-Body: { title?, description?, acceptanceCriteria?, ... }
-Response: { action: ActionDraft }
+PUT /api/v1/actions/{action_id}
+- Update action draft (Scrum Master edits)
+- Body: Partial<ActionDraft>
 
-POST   /api/actions/:actionId/push-to-jira           # Create Jira issue
-Body: { sprintId?: number }
-Response: { jiraIssueKey: string }
+POST /api/v1/actions/{action_id}/approve
+- Approve action and push to Jira
+- Return: jira_issue_key, jira_url
+```
 
-POST   /api/actions/:actionId/rejecum Master, Developer, Viewer
+### 4.3 Repository Integration Endpoints
+
+```
+POST /api/v1/repositories/{repo_id}/index
+- Index repository for semantic search
+- Process: Clone → Parse → Embed → Store
+
+GET /api/v1/repositories/{repo_id}/search
+- Semantic search across repository
+- Query params: query, limit, threshold
+```
+
+### 4.4 Learning Path Endpoints
+
+```
+POST /api/v1/learning-paths
+- Generate learning path for developer
+- Body: { developer_id, repository, role, current_tasks }
+
+GET /api/v1/learning-paths/{developer_id}
+- Get active learning paths for developer
+```
+
+---
+
+## 5. Integration Architecture
+
+### 5.1 Jira Integration
+
+- **Authentication:** OAuth 2.0 (3-legged flow)
+- **Permissions:** Read projects, Create issues, Update issues
+- **Webhook Setup:** Bidirectional sync for issue status updates
+- **Rate Limiting:** Respect Jira API limits (10 requests/second)
+
+### 5.2 GitHub/GitLab Integration
+
+- **Authentication:** Personal Access Tokens or GitHub Apps
+- **Permissions:** Read repositories, Read pull requests, Read issues
+- **Data Sync:** Periodic sync of repository metadata and recent activity
+
+### 5.3 VS Code Extension Architecture
+
+```
+VS Code Extension (TypeScript)
+          ↓ (REST API calls)
+Backend Service (Node.js)
+          ↓ (WebSocket for real-time updates)
+Scrum Master Dashboard
+```
+
+---
+
+## 6. AI Processing Pipeline
+
+### 6.1 Stage 1: Text Ingestion & Preprocessing
+
+```
+Raw Text Input
+     ↓
+PII Redaction (emails, phone numbers)
+     ↓
+Language Detection
+     ↓
+Chunking (semantic boundaries)
+     ↓
+Metadata Extraction (dates, names, priorities)
+```
+
+### 6.2 Stage 2: Context Enrichment
+
+```
+Text Chunks
+     ↓
+Generate Embeddings (OpenAI ada-002)
+     ↓
+Vector Search (Weaviate)
+     ↓
+Retrieve Relevant: Files, PRs, Commits, Issues
+     ↓
+Rank by Relevance Score
+```
+
+### 6.3 Stage 3: Action Extraction
+
+```
+Enriched Context
+     ↓
+LLM Prompt Chain:
+  1. Summarization Prompt
+  2. Action Identification Prompt
+  3. Ticket Drafting Prompt
+     ↓
+Structured Output (JSON)
+     ↓
+Confidence Scoring
+```
+
+### 6.4 Stage 4: Human Review Loop
+
+```
+AI Draft
+     ↓
+Scrum Master Dashboard
+     ↓
+Edit/Approve/Reject
+     ↓
+If Approved → Jira API Call
+     ↓
+Webhook Confirmation
+```
+
+---
+
+## 7. Security & Privacy
+
+### 7.1 Authentication & Authorization
+
+- **JWT Tokens:** 7-day expiration, refresh token rotation
+- **Role-Based Access:** Admin, Scrum Master, Developer, Viewer
 - **API Rate Limiting:** 100 requests/minute per user
 - **CORS:** Strict origin validation
 
-### Data Protection
+### 7.2 Data Protection
+
 - **Encryption:** TLS 1.3 in transit, AES-256 at rest
 - **PII Handling:** Automatic redaction before LLM processing
 - **Audit Trail:** Immutable logs for all approvals and Jira pushes
 - **Data Retention:** Configurable per organization (default: 2 years)
 
-### Privacy Controls
+### 7.3 Privacy Controls
+
 - **On-Prem Deployment:** Docker containers for air-gapped environments
 - **Local LLM Option:** Llama 2 quantized models
 - **Data Residency:** Configurable storage regions
 - **GDPR Compliance:** Data export, right to delete, consent management
 
-## Performance & Scalability
+---
 
-### Performance Targets
+## 8. Performance & Scalability
+
+### 8.1 Performance Targets
+
 - **Action Extraction:** < 10 seconds for 2000-word input
 - **Dashboard Load:** < 2 seconds
 - **IDE Operations:** < 5 seconds (explain/test generation)
 
-### Scalability Design
+### 8.2 Scalability Design
+
 - **Horizontal Scaling:** Stateless backend services
 - **Database Sharding:** MongoDB sharding by organization
 - **Caching Strategy:** Redis for frequently accessed data
 - **CDN:** Static assets served via CDN
 - **Load Balancing:** NGINX with health checks
 
-### Monitoring & Observability
+### 8.3 Monitoring & Observability
+
 - **Metrics:** Prometheus + Grafana
 - **Logging:** Structured JSON logs with correlation IDs
 - **Tracing:** OpenTelemetry for distributed tracing
 - **Alerts:** PagerDuty integration for critical issues
 
-## Deployment Architecture
+---
 
-### Development Environment
+## 9. Deployment Architecture
+
+### 9.1 Development Environment
+
 ```
 Docker Compose:
 - MongoDB (single instance)
-- Redis (single instance)  
+- Redis (single instance)
 - Weaviate (single instance)
 - Backend API (hot reload)
 - Frontend (Next.js dev server)
 ```
 
-### Production Environment
+### 9.2 Production Environment
+
 ```
 Kubernetes Cluster:
 - MongoDB ReplicaSet (3 nodes)
@@ -313,7 +356,8 @@ Kubernetes Cluster:
 - NGINX Ingress Controller
 ```
 
-### On-Premises Deployment
+### 9.3 On-Premises Deployment
+
 ```
 Docker Swarm:
 - All services containerized
@@ -322,47 +366,79 @@ Docker Swarm:
 - Backup/restore procedures
 ```
 
-## Bharat-Specific Features
+---
 
-### Multilingual Support
+## 10. Bharat-Specific Features
+
+### 10.1 Multilingual Support
+
 - **UI Localization:** i18n with Hindi, Tamil, Telugu, Bengali, Marathi
 - **Content Translation:** Azure Translator API for ticket descriptions
 - **Code Comments:** Multilingual explanations in IDE extension
 
-### Low-Bandwidth Optimization
+### 10.2 Low-Bandwidth Optimization
+
 - **Progressive Web App:** Service workers for offline capability
 - **Data Compression:** Gzip compression for API responses
 - **Lazy Loading:** Component-based loading for dashboard
 - **Sync Optimization:** Delta sync for mobile connections
 
-### Compliance & Governance
+### 10.3 Compliance & Governance
+
 - **Data Localization:** India-specific deployment regions
 - **Audit Requirements:** Detailed logging for compliance
 - **Custom Workflows:** Configurable approval processes
 - **Integration Flexibility:** Support for local tools and processes
 
-## Risk Mitigation
+---
 
-### Technical Risks
+## 11. Risk Mitigation
+
+### 11.1 Technical Risks
+
 - **LLM Hallucination:** Human approval required, confidence scores displayed
 - **API Rate Limits:** Retry queues, exponential backoff
 - **Service Dependencies:** Circuit breakers, graceful degradation
 
-### Operational Risks
+### 11.2 Operational Risks
+
 - **Data Loss:** Automated backups, point-in-time recovery
 - **Security Breaches:** Regular security audits, penetration testing
 - **Performance Degradation:** Auto-scaling, performance monitoring
 
-## Future Enhancements
+---
 
-### Phase 2 Features
+## 12. Future Enhancements
+
+### 12.1 Phase 2 Features
+
 - **Voice Input:** Speech-to-text for meeting recordings
 - **Advanced Analytics:** Predictive sprint planning
 - **Mobile Apps:** Native iOS/Android applications
 - **Workflow Automation:** Custom Jira workflow triggers
 
-### Integration Roadmap
+### 12.2 Integration Roadmap
+
 - **Slack/Teams:** Native bot integration
 - **Azure DevOps:** Alternative to Jira integration
 - **GitLab:** Enhanced GitLab support
 - **Confluence:** Documentation linking
+
+---
+
+## 13. Unique Selling Propositions (USPs)
+
+### 13.1 Governed Automation
+AI drafts combined with mandatory human approval and complete audit trail ensures trust and compliance.
+
+### 13.2 Repository-Aware Tickets
+Semantic linking to files, PRs, and commits makes every Jira issue immediately actionable with full context.
+
+### 13.3 Scrum Master-Centric UX
+Single dashboard to approve, assign, and measure — designed for the coordination role, not just developers.
+
+### 13.4 In-IDE to Jira Loop
+Flag blockers directly in the editor, which become approved tickets with linked context — zero context loss.
+
+### 13.5 Bharat-First Design
+Multilingual support, low-bandwidth modes, and on-prem deployment options address real constraints faced by Indian teams and institutions.
